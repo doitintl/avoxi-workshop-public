@@ -1,0 +1,4 @@
+
+# Ignore checkpoint directories
+**/checkpoints/
+**/checkpoint_*
