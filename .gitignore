@@ -2,3 +2,11 @@
 # Ignore checkpoint directories
 **/checkpoints/
 **/checkpoint_*
+**/.ipynb_checkpoints/
+
+# Project Python virtual environments
+/venv/
+/distrib/venv/
+
+# Jupyter log files
+samples/debug.log
