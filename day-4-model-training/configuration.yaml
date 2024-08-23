@@ -1,0 +1,66 @@
+project_id: "gurkomal-playground"
+location: "us-central1"
+bq_location: "US"
+bucket: "gs://avoxi_workshop_bucket"
+main_python_file: "gs://avoxi_workshop_bucket/data_pipeline/preprocessing_v2.py"
+image_uri: "gcr.io/gurkomal-playground/avoxi-workshop-image:1.0.3"
+dataset_id: "avoxi_workshop"
+model_id: "autoencoder_v2"
+model_registry_name: "bq_autoencoder_v1"
+endpoint_name: "test"
+model_name: "gurkomal-playground.avoxi_workshop.autoencoder_v2"
+model_registry_path: "VERTEX_AI"
+anomaly_table_name: "gurkomal-playground.avoxi_workshop.anomaly_table"
+no_anomaly_table_name: "gurkomal-playground.avoxi_workshop.no_anomaly_table"
+deployed_model_display_name: "autoencoderv1"
+dedicated_resources_machine_type: "n1-standard-2"
+dedicated_resources_min_replica_count: 1
+dedicated_resources_max_replica_count: 1
+reference_metric_name: "mean_squared_error"
+testing: true
+enable_caching: true
+
+dataproc_args:
+  input: "gs://avoxi_workshop_bucket/large_table/"
+  output: "gs://avoxi_workshop_bucket/large_table_cleaned/v7/output/"
+  anomaly_output: "gs://avoxi_workshop_bucket/large_table_cleaned/v7/anom/"
+  no_anomaly_output: "gs://avoxi_workshop_bucket/large_table_cleaned/v7/no_anom/"
+  anomaly_normalized_output: "gs://avoxi_workshop_bucket/large_table_cleaned/v7/anomaly_normalized_output/"
+  no_anomaly_normalized_output: "gs://avoxi_workshop_bucket/large_table_cleaned/v7/no_anomaly_normalized_output/"
+
+runtime_config_properties:
+  spark.dynamicAllocation.enabled: "true"
+  spark.dynamicAllocation.maxExecutors: "2"
+  spark.executor.memory: "3g"
+  spark.driver.memory: "3g"
+  spark.executor.memoryOverhead: "3g"
+  spark.driver.memoryOverhead: "3g"
+  spark.executor.instances: "2"
+
+model_thresholds:
+  mean_squared_error: 2.09
+
+create_model_query: >
+  CREATE OR REPLACE MODEL `{model_name}`
+  OPTIONS(
+      model_type='AUTOENCODER',
+      batch_size=32,
+      hidden_units=[8, 4, 2, 4, 8],
+      activation_fn='RELU',
+      optimizer='ADAM',
+      learn_rate=0.01,
+      max_iterations=10,
+      early_stop=TRUE,
+      model_registry='{model_registry_path}'
+  ) AS (
+      SELECT
+          packet_loss,
+          duration,
+          jitter,
+          mean_opinion_score
+      FROM (
+          SELECT * FROM `{anomaly_table_name}`
+          UNION ALL
+          SELECT * FROM `{no_anomaly_table_name}`
+      )
+  );
