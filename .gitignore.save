@@ -1,0 +1,26 @@
+
+# Ignore checkpoint directories
+**/checkpoints/*
+**/checkpoint_*
+**/.ipynb_checkpoints/*
+.ipynb_checkpoints
+*/.ipynb_checkpoints# Ignore log files
+*.log
+
+# Ignore temporary files
+*.tmp
+
+# Ignore the 'node_modules' directory
+node_modules/
+
+# Ignore the 'build' directory
+build/
+
+# Ignore the '.env' file
+.env
+
+# Ignore all files in the 'dist' directory
+dist/*
+
+# Ignore a specific file in the root directory
+/secret.txt
