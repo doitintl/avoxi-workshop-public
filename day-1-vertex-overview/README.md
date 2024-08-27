@@ -7,3 +7,4 @@
 * `gemini_google_search_rag.ipynb` A simple RAG illustrating the importance and usage of Agent/LLM Tools
 * `get_started_vertex_training_lightgbm.ipynb` illustrates vertex ai training
 * `intro_gemini_1_5_pro.ipynb` Provides an overview of Gemini capabilities (text,image,video,audio processing)
+* [Genkit installation](https://firebase.google.com/docs/genkit/get-started)
