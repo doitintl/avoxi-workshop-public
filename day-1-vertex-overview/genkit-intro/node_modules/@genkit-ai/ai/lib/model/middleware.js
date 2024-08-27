@@ -1,0 +1,264 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __async = (__this, __arguments, generator) => {
+  return new Promise((resolve, reject) => {
+    var fulfilled = (value) => {
+      try {
+        step(generator.next(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var rejected = (value) => {
+      try {
+        step(generator.throw(value));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    var step = (x) => x.done ? resolve(x.value) : Promise.resolve(x.value).then(fulfilled, rejected);
+    step((generator = generator.apply(__this, __arguments)).next());
+  });
+};
+var middleware_exports = {};
+__export(middleware_exports, {
+  CONTEXT_PREFACE: () => CONTEXT_PREFACE,
+  augmentWithContext: () => augmentWithContext,
+  conformOutput: () => conformOutput,
+  downloadRequestMedia: () => downloadRequestMedia,
+  simulateSystemPrompt: () => simulateSystemPrompt,
+  validateSupport: () => validateSupport
+});
+module.exports = __toCommonJS(middleware_exports);
+var import_document = require("../document.js");
+function downloadRequestMedia(options) {
+  return (req, next) => __async(this, null, function* () {
+    const { default: fetch } = yield import("node-fetch");
+    const newReq = __spreadProps(__spreadValues({}, req), {
+      messages: yield Promise.all(
+        req.messages.map((message) => __async(this, null, function* () {
+          const content = yield Promise.all(
+            message.content.map((part) => __async(this, null, function* () {
+              if (!part.media || !part.media.url.startsWith("http") || (options == null ? void 0 : options.filter) && !(options == null ? void 0 : options.filter(part))) {
+                return part;
+              }
+              const response = yield fetch(part.media.url, {
+                size: options == null ? void 0 : options.maxBytes
+              });
+              if (response.status !== 200)
+                throw new Error(
+                  `HTTP error downloading media '${part.media.url}': ${yield response.text()}`
+                );
+              const contentType = part.media.contentType || response.headers.get("content-type") || "";
+              return {
+                media: {
+                  contentType,
+                  url: `data:${contentType};base64,${Buffer.from(
+                    yield response.arrayBuffer()
+                  ).toString("base64")}`
+                }
+              };
+            }))
+          );
+          return __spreadProps(__spreadValues({}, message), {
+            content
+          });
+        }))
+      )
+    });
+    return next(newReq);
+  });
+}
+function validateSupport(options) {
+  const supports = options.supports || {};
+  return (req, next) => __async(this, null, function* () {
+    var _a, _b, _c, _d;
+    function invalid(message) {
+      throw new Error(
+        `Model '${options.name}' does not support ${message}. Request: ${JSON.stringify(
+          req,
+          null,
+          2
+        )}`
+      );
+    }
+    if (supports.media === false && req.messages.some((message) => message.content.some((part) => part.media)))
+      invalid("media, but media was provided");
+    if (supports.tools === false && ((_a = req.tools) == null ? void 0 : _a.length))
+      invalid("tool use, but tools were provided");
+    if (supports.multiturn === false && req.messages.length > 1)
+      invalid(`multiple messages, but ${req.messages.length} were provided`);
+    if (typeof supports.output !== "undefined" && ((_b = req.output) == null ? void 0 : _b.format) && !supports.output.includes((_c = req.output) == null ? void 0 : _c.format))
+      invalid(`requested output format '${(_d = req.output) == null ? void 0 : _d.format}'`);
+    return next();
+  });
+}
+function lastUserMessage(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      return messages[i];
+    }
+  }
+}
+function conformOutput() {
+  return (req, next) => __async(this, null, function* () {
+    var _a, _b;
+    const lastMessage = lastUserMessage(req.messages);
+    if (!lastMessage)
+      return next(req);
+    const outputPartIndex = lastMessage.content.findIndex(
+      (p) => {
+        var _a2;
+        return ((_a2 = p.metadata) == null ? void 0 : _a2.purpose) === "output";
+      }
+    );
+    const outputPart = outputPartIndex >= 0 ? lastMessage.content[outputPartIndex] : void 0;
+    if (!((_a = req.output) == null ? void 0 : _a.schema) || outputPart && !((_b = outputPart == null ? void 0 : outputPart.metadata) == null ? void 0 : _b.pending)) {
+      return next(req);
+    }
+    const instructions = `
+
+Output should be in JSON format and conform to the following schema:
+
+\`\`\`
+${JSON.stringify(req.output.schema)}
+\`\`\`
+`;
+    if (outputPart) {
+      lastMessage.content[outputPartIndex] = __spreadProps(__spreadValues({}, outputPart), {
+        metadata: {
+          purpose: "output",
+          source: "default"
+        },
+        text: instructions
+      });
+    } else {
+      lastMessage == null ? void 0 : lastMessage.content.push({
+        text: instructions,
+        metadata: { purpose: "output", source: "default" }
+      });
+    }
+    return next(req);
+  });
+}
+function simulateSystemPrompt(options) {
+  const preface = (options == null ? void 0 : options.preface) || "SYSTEM INSTRUCTIONS:\n";
+  const acknowledgement = (options == null ? void 0 : options.acknowledgement) || "Understood.";
+  return (req, next) => {
+    const messages = [...req.messages];
+    for (let i = 0; i < messages.length; i++) {
+      if (req.messages[i].role === "system") {
+        const systemPrompt = messages[i].content;
+        messages.splice(
+          i,
+          1,
+          { role: "user", content: [{ text: preface }, ...systemPrompt] },
+          { role: "model", content: [{ text: acknowledgement }] }
+        );
+        break;
+      }
+    }
+    return next(__spreadProps(__spreadValues({}, req), { messages }));
+  };
+}
+const CONTEXT_PREFACE = "\n\nUse the following information to complete your task:\n\n";
+const CONTEXT_ITEM_TEMPLATE = (d, index, options) => {
+  var _a, _b;
+  let out = "- ";
+  if (options == null ? void 0 : options.citationKey) {
+    out += `[${d.metadata[options.citationKey]}]: `;
+  } else if ((options == null ? void 0 : options.citationKey) === void 0) {
+    out += `[${((_a = d.metadata) == null ? void 0 : _a["ref"]) || ((_b = d.metadata) == null ? void 0 : _b["id"]) || index}]: `;
+  }
+  out += d.text() + "\n";
+  return out;
+};
+function augmentWithContext(options) {
+  const preface = typeof (options == null ? void 0 : options.preface) === "undefined" ? CONTEXT_PREFACE : options.preface;
+  const itemTemplate = (options == null ? void 0 : options.itemTemplate) || CONTEXT_ITEM_TEMPLATE;
+  return (req, next) => {
+    var _a, _b, _c;
+    if (!((_a = req.context) == null ? void 0 : _a.length))
+      return next(req);
+    const userMessage = lastUserMessage(req.messages);
+    if (!userMessage)
+      return next(req);
+    const contextPartIndex = userMessage == null ? void 0 : userMessage.content.findIndex(
+      (p) => {
+        var _a2;
+        return ((_a2 = p.metadata) == null ? void 0 : _a2.purpose) === "context";
+      }
+    );
+    const contextPart = contextPartIndex >= 0 && userMessage.content[contextPartIndex];
+    if (contextPart && !((_b = contextPart.metadata) == null ? void 0 : _b.pending)) {
+      return next(req);
+    }
+    let out = `${preface || ""}`;
+    (_c = req.context) == null ? void 0 : _c.forEach((d, i) => {
+      out += itemTemplate(new import_document.Document(d), i, options);
+    });
+    out += "\n";
+    if (contextPartIndex >= 0) {
+      userMessage.content[contextPartIndex] = __spreadProps(__spreadValues({}, contextPart), {
+        text: out,
+        metadata: { purpose: "context" }
+      });
+    } else {
+      userMessage.content.push({ text: out, metadata: { purpose: "context" } });
+    }
+    return next(req);
+  };
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  CONTEXT_PREFACE,
+  augmentWithContext,
+  conformOutput,
+  downloadRequestMedia,
+  simulateSystemPrompt,
+  validateSupport
+});
+//# sourceMappingURL=middleware.js.map
