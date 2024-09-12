@@ -34,7 +34,7 @@ def categorize_columns(df, list3_columns):
     list2 = [col for col, dtype in column_types.items() 
             if dtype in ('int', 'double', 'float', 'long') 
             and not any(col in l3_col for l3_col in list3_columns)]
-    return list1 + list3_columns, list2
+    return list1, list2
 
 def normalize_dataset(df, numeric_cols):
     spark = SparkSession.builder.appName("NormalizeDataset").getOrCreate()
@@ -127,10 +127,14 @@ def run(argv=None):
     print(df.shape())
 
     # Remove rows with any null values
-    df = df.na.drop()
-    df = df.drop('status')
+    df = df.drop('status', 'data_center', 'carrier_id','label','origination','destination')
+    df = df.dropna()
     columns = df.columns
-
+    
+    # Print Schema
+    print("Shape after dropping nulls")
+    print(df.shape())
+    
     df = df.withColumn("164_from_caller_id", col("164_from_caller_id").cast("string"))
     df = df.withColumn("164_to_caller_id", col("164_to_caller_id").cast("string"))
     if 'carrier_id' in columns:
@@ -146,6 +150,10 @@ def run(argv=None):
     # Filter out invalid phone numbers early
     df = df.filter((col('from_country') != 'Invalid') & (col('to_country') != 'Invalid'))
 
+    # Print Schema
+    print("Shape after removing invalid countries")
+    print(df.shape())
+    
     # Identify non-numeric columns
     columns_to_exclude = ['day', 'hour']
     non_numeric_cols, numeric_cols = categorize_columns(df, columns_to_exclude)
@@ -153,14 +161,19 @@ def run(argv=None):
     print(f"Normalizing columns: {numeric_cols}")
     print(f"Omitting columns: {non_numeric_cols}")
 
+    
     # Step 1: Compute quantiles for reuse
-    jitter_median = df.approxQuantile('jitter', [0.50], 0.05)[0]
+    jitter_median = df.approxQuantile('jitter', [0.50], 0.10)[0]
     mos_quartile_25 = df.approxQuantile('mean_opinion_score', [0.25], 0.05)[0]
     duration_median = df.approxQuantile('duration', [0.50], 0.05)[0]
 
+    print(f"Jitter Median: {jitter_median}")
+    print(f"Mean Opinion Score 25th Quartile: {mos_quartile_25}")
+    print(f"Duration Median: {duration_median}")
+    
     # Step 2: Create anomalies DataFrame
     anomalies_df = df.filter(
-        (col('packet_loss') >= 0.1) &
+        (col('packet_loss') > 0.1) &
         (col('jitter') > jitter_median) &
         (col('mean_opinion_score') < mos_quartile_25)
     )
@@ -203,6 +216,3 @@ def run(argv=None):
 
     # Stop the Spark session
     spark.stop()
-
-if __name__ == '__main__':
-    run(sys.argv)

@@ -1,0 +1,31 @@
+# config.yaml
+project_id: "gurkomal-playground"
+dataset_id: "avoxi_workshop"
+model_name: "autoencoder_v1"
+input_table: "anomaly_labelled_data_v2"
+results_table: "results"
+
+model_options:
+  model_type: "AUTOENCODER"
+  batch_size: 32
+  hidden_units: [8, 4, 2, 4, 8]
+  activation_fn: ["RELU", "SIGMOID"]
+  optimizer: ["ADAM", "SGD"]
+  learn_rate: 0.01
+  max_iterations: 10
+  early_stop: True
+
+hyperparameter_tuning:
+  num_trials: 4
+  algorithm: "VIZIER_DEFAULT"
+
+detect_anomalies:
+  contamination: 0.04
+
+input_features:
+  - "packet_loss"
+  - "duration"
+  - "jitter"
+  - "mean_opinion_score"
+
+gcs_bucket: "avoxi_workshop_bucket"
